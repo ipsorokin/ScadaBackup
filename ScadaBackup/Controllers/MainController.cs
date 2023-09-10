@@ -8,14 +8,19 @@ using System.Reflection;
 using System.Xml.Linq;
 
 namespace ScadaBackup.Controllers
-{
-
+{ 
     internal class BackupController : IBackupController
     {
-        private static string DatabaseFolder { get; } = "C:\\1Tekon\\ASUD Scada\\A_JOURNAL";
-        private static string OPCServerFolder { get; } = "C:\\1Tekon\\ASUD Scada\\OPC Server";
-        private static string ScadaFolder { get; } = "C:\\1Tekon\\ASUD Scada\\SCADA";
-        private static string BackupFolder { get; } = Path.Combine(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location), "scada-backups");
+        private readonly string DatabaseFolder = "C:\\1Tekon\\ASUD Scada\\A_JOURNAL";
+        private readonly string OPCServerFolder = "C:\\1Tekon\\ASUD Scada\\OPC Server";
+        private readonly string ScadaFolder = "C:\\1Tekon\\ASUD Scada\\SCADA";
+        private readonly string EventsDbFileName = "journal.db";
+        private readonly string VoicesDbFileName = "vjm.db";
+        private readonly string ZipOPCServerSettings = "OPC Server/settings/";
+        private readonly string ZipScadaSettings = "SCADA/settings/";
+        private readonly string ZipScadaScripts = "SCADA/scripts/";
+        private readonly string ZipDatabases = "A_JOURNAL/";
+        private readonly string BackupFolder = Path.Combine(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location), "scada-backups");
 
         public BackupController()
         {
@@ -30,7 +35,7 @@ namespace ScadaBackup.Controllers
         /// <param name="copyEvents"></param>
         /// <param name="copyScripts"></param>
         /// <returns></returns>
-        public BackupFile CreateBackup(bool copyVoices, bool copyEvents, bool copyScripts)
+        public BackupFile CreateBackup(bool copyEvents, bool copyVoices, bool copyScripts)
         {
             string targetPath = Path.Combine(BackupFolder, GenerateBackupName());
             CopyBaseSettings(targetPath);
@@ -68,9 +73,13 @@ namespace ScadaBackup.Controllers
         /// <param name="copyVoices"></param>
         /// <param name="copyEvents"></param>
         /// <param name="copyScripts"></param>
-        public void RestoreBackup(BackupFile file, bool copyVoices, bool copyEvents, bool copyScripts)
+        public void RestoreBackup(BackupFile file, bool copyEvents, bool copyVoices, bool copyScripts)
         {
-            ArchiveExtract(file);
+            using (ZipArchive archive = ZipFile.OpenRead(file.FullName))
+            {
+                //ExtractToDirectory(archive, "C:\\1Tekon\\ASUD Scada", true);
+                ExtractToDirectory(archive, "C:\\1Tekon\\ASUD Scada", copyEvents, copyVoices, copyScripts);
+            }
         }
 
         /// <summary>
@@ -93,9 +102,9 @@ namespace ScadaBackup.Controllers
                     file.Length,
                     file.Extension,
                     file.CreationTime,
-                    Exists(archive, "A_JOURNAL/journal.db"),
-                    Exists(archive, "A_JOURNAL/vjm.db"),
-                    Exists(archive, "SCADA/scripts/"),
+                    Exists(archive, $"{ZipDatabases}{EventsDbFileName}"),
+                    Exists(archive, $"{ZipDatabases}{VoicesDbFileName}"),
+                    Exists(archive, $"{ZipScadaScripts}"),
                     GetSdkVersion(archive)
                 );
         }
@@ -107,7 +116,7 @@ namespace ScadaBackup.Controllers
         /// <returns></returns>
         private string GetSdkVersion(ZipArchive archive)
         {
-            using (Stream stream = archive.GetEntry("OPC Server/settings/general.conf").Open())
+            using (Stream stream = archive.GetEntry($"{ZipOPCServerSettings}general.conf").Open())
             {
                 XDocument xDocument = XDocument.Load(stream);
                 return xDocument.Element("Configuration").Attribute("SDK_Version").Value;
@@ -140,20 +149,20 @@ namespace ScadaBackup.Controllers
         /// <param name="targetPath"></param>
         /// <param name="copyVoices"></param>
         /// <param name="copyEvents"></param>
-        private void CopyDatabase(string targetPath, bool copyVoices, bool copyEvents)
+        private void CopyDatabase(string targetPath, bool copyEvents, bool copyVoices)
         {
             string _targetPath = Path.Combine(targetPath, "A_JOURNAL");
-            string voices_path = Path.Combine(DatabaseFolder, "vjm.db");
-            string events_path = Path.Combine(DatabaseFolder, "journal.db");
+            string events_path = Path.Combine(DatabaseFolder, EventsDbFileName);
+            string voices_path = Path.Combine(DatabaseFolder, VoicesDbFileName);
 
             if (copyEvents || copyVoices)
                 Directory.CreateDirectory(_targetPath);
 
-            if (copyVoices && File.Exists(voices_path))
-                File.Copy(voices_path, voices_path.Replace(DatabaseFolder, _targetPath), true);
-
             if (copyEvents && File.Exists(events_path))
                 File.Copy(events_path, events_path.Replace(DatabaseFolder, _targetPath), true);
+
+            if (copyVoices && File.Exists(voices_path))
+                File.Copy(voices_path, voices_path.Replace(DatabaseFolder, _targetPath), true);
         }
 
         /// <summary>
@@ -188,37 +197,49 @@ namespace ScadaBackup.Controllers
         /// <summary>
         /// 
         /// </summary>
-        /// <param name="file"></param>
-        private void ArchiveExtract(BackupFile file)
-        {
-            using (ZipArchive archive = ZipFile.OpenRead(file.FullName))
-                ExtractToDirectory(archive, "C:\\1Tekon\\ASUD Scada", true);
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
         /// <param name="archive"></param>
         /// <param name="destinationDirectoryName"></param>
-        /// <param name="overwrite"></param>
-        private void ExtractToDirectory(ZipArchive archive, string destinationDirectoryName, bool overwrite)
+        /// <param name="copyEvents"></param>
+        /// <param name="copyVoices"></param>
+        /// <param name="copyScripts"></param>
+        private void ExtractToDirectory(ZipArchive archive, string destinationDirectoryName, bool copyEvents, bool copyVoices, bool copyScripts)
         {
-            if (!overwrite)
-            {
-                archive.ExtractToDirectory(destinationDirectoryName);
-                return;
-            }
-
             foreach (ZipArchiveEntry file in archive.Entries)
             {
                 string completeFileName = Path.Combine(destinationDirectoryName, file.FullName);
                 string directory = Path.GetDirectoryName(completeFileName);
 
-                if (!Directory.Exists(directory))
-                    Directory.CreateDirectory(directory);
+                if (copyEvents && file.FullName.Contains($"{ZipDatabases}{EventsDbFileName}"))
+                {
+                    file.ExtractToFile(Path.Combine(DatabaseFolder, EventsDbFileName), true);
+                    continue;
+                }
 
-                if (file.Name != "")
-                    file.ExtractToFile(completeFileName, true);
+                if (copyVoices && file.FullName.Contains($"{ZipDatabases}{VoicesDbFileName}"))
+                {
+                    file.ExtractToFile(Path.Combine(DatabaseFolder, VoicesDbFileName), true);
+                    continue;
+                }
+
+                if (copyScripts && file.FullName.Contains(ZipScadaScripts))
+                {
+                    if (!Directory.Exists(directory))
+                        Directory.CreateDirectory(directory);
+
+                    if (file.Name != "")
+                        file.ExtractToFile(completeFileName, true);
+
+                    continue;
+                }
+
+                if (file.FullName.Contains(ZipScadaSettings) || file.FullName.Contains(ZipOPCServerSettings))
+                {
+                    if (!Directory.Exists(directory))
+                        Directory.CreateDirectory(directory);
+
+                    if (file.Name != "")
+                        file.ExtractToFile(completeFileName, true);
+                }
             }
         }
 

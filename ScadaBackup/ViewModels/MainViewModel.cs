@@ -66,7 +66,7 @@ namespace ScadaBackup.ViewModels
         {
             try
             {
-                BackupFile newFile = _controller.CreateBackup(IsCopyVoicesDatabase, IsCopyEventsDatabase, IsCopyScripts);
+                BackupFile newFile = _controller.CreateBackup(IsCopyEventsDatabase, IsCopyVoicesDatabase, IsCopyScripts);
                 BackupFiles.Add(newFile);
                 MessageBox.Show("Резервная копия успешно создана.", "Информация", MessageBoxButton.OK, MessageBoxImage.Information);
             }
@@ -83,7 +83,7 @@ namespace ScadaBackup.ViewModels
         {
             try
             {
-                _controller.RestoreBackup(SelectedBackupFile, IsCopyVoicesDatabase, IsCopyEventsDatabase, IsCopyScripts);
+                _controller.RestoreBackup(SelectedBackupFile, IsCopyEventsDatabase, IsCopyVoicesDatabase, IsCopyScripts);
                 MessageBox.Show("Восстановление из резервной копии завершено.", "Информация", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
