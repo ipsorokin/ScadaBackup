@@ -39,7 +39,7 @@ namespace ScadaBackup.Controllers
         {
             string targetPath = Path.Combine(BackupFolder, GenerateBackupName());
             CopyBaseSettings(targetPath);
-            CopyDatabase(targetPath, copyVoices, copyEvents);
+            CopyDatabase(targetPath, copyEvents, copyVoices);
             CopyScripts(targetPath, copyScripts);
             return ArchiveCreate(targetPath);
         }
@@ -77,7 +77,6 @@ namespace ScadaBackup.Controllers
         {
             using (ZipArchive archive = ZipFile.OpenRead(file.FullName))
             {
-                //ExtractToDirectory(archive, "C:\\1Tekon\\ASUD Scada", true);
                 ExtractToDirectory(archive, "C:\\1Tekon\\ASUD Scada", copyEvents, copyVoices, copyScripts);
             }
         }
