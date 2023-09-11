@@ -12,7 +12,7 @@ namespace ScadaBackup.Controllers
     internal class BackupController : IBackupController
     {
         private readonly string DatabaseFolder = "C:\\1Tekon\\ASUD Scada\\A_JOURNAL";
-        private readonly string OPCServerFolder = "C:\\1Tekon\\ASUD Scada\\OPC Server";
+        private readonly string OPCServerSettingsFolder = "C:\\1Tekon\\ASUD Scada\\OPC Server\\settings";
         private readonly string ScadaFolder = "C:\\1Tekon\\ASUD Scada\\SCADA";
         private readonly string EventsDbFileName = "journal.db";
         private readonly string VoicesDbFileName = "vjm.db";
@@ -128,7 +128,7 @@ namespace ScadaBackup.Controllers
         /// <param name="targetPath"></param>
         private void CopyBaseSettings(string targetPath)
         {
-            CopyFilesRecursively(Path.Combine(OPCServerFolder, "settings"), Path.Combine(targetPath, "OPC Server", "settings"));
+            CopyFilesRecursively(OPCServerSettingsFolder, Path.Combine(targetPath, "OPC Server", "settings"));
             CopyFilesRecursively(Path.Combine(ScadaFolder, "settings"), Path.Combine(targetPath, "SCADA", "settings"));
         }
 
@@ -208,6 +208,17 @@ namespace ScadaBackup.Controllers
                 string completeFileName = Path.Combine(destinationDirectoryName, file.FullName);
                 string directory = Path.GetDirectoryName(completeFileName);
 
+                if (file.FullName.Contains(ZipScadaSettings) || file.FullName.Contains(ZipOPCServerSettings))
+                {
+                    if (!Directory.Exists(directory))
+                        Directory.CreateDirectory(directory);
+
+                    if (file.Name != "")
+                        file.ExtractToFile(completeFileName, true);
+
+                    continue;
+                }
+
                 if (copyEvents && file.FullName.Contains($"{ZipDatabases}{EventsDbFileName}"))
                 {
                     file.ExtractToFile(Path.Combine(DatabaseFolder, EventsDbFileName), true);
@@ -229,15 +240,6 @@ namespace ScadaBackup.Controllers
                         file.ExtractToFile(completeFileName, true);
 
                     continue;
-                }
-
-                if (file.FullName.Contains(ZipScadaSettings) || file.FullName.Contains(ZipOPCServerSettings))
-                {
-                    if (!Directory.Exists(directory))
-                        Directory.CreateDirectory(directory);
-
-                    if (file.Name != "")
-                        file.ExtractToFile(completeFileName, true);
                 }
             }
         }

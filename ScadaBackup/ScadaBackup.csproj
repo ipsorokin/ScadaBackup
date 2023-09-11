@@ -62,7 +62,7 @@
     </ApplicationDefinition>
     <Compile Include="Commands\RelayCommand.cs" />
     <Compile Include="Controllers\IBackupController.cs" />
-    <Compile Include="Controllers\MainController.cs" />
+    <Compile Include="Controllers\BackupController.cs" />
     <Compile Include="Converters\SizeConverter.cs" />
     <Compile Include="Models\BackupFile.cs" />
     <Compile Include="ViewModels\BaseViewModel.cs" />
